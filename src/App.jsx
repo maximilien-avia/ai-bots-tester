@@ -7,8 +7,26 @@ const starterMessages = [
 
 const quickReplies = ['Salut !', 'Tu es là ?', 'On continue ?']
 
+const users = [
+  { id: 'alice', name: 'Alice', initials: 'A', phone: '33675797466' },
+  { id: 'bob', name: 'Bob', initials: 'B', phone: '33778150003' },
+  { id: 'charlie', name: 'Charlie', initials: 'C', phone: '33655667788' },
+]
+
 function App() {
-  const [messages, setMessages] = useState(starterMessages)
+  const [conversations, setConversations] = useState(() => {
+    const initial = {}
+
+    users.forEach((user) => {
+      initial[user.id] = starterMessages.map((message, index) => ({
+        ...message,
+        id: `${user.id}-${index}-${message.id}`,
+      }))
+    })
+
+    return initial
+  })
+  const [selectedUserId, setSelectedUserId] = useState(users[0].id)
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
 
@@ -17,6 +35,8 @@ function App() {
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }, [])
 
+  const selectedUser = users.find((user) => user.id === selectedUserId)
+  const messages = conversations[selectedUserId] ?? []
   const n8nWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
 
   useEffect(() => {
@@ -26,36 +46,43 @@ function App() {
   const sendMessage = async (text) => {
     const trimmed = text.trim()
 
-    if (!trimmed || isSending) return
+    if (!trimmed || isSending || !selectedUser) return
 
     const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-    const newMessage = {
+    const sentMessage = {
       id: crypto.randomUUID(),
       sender: 'me',
       text: trimmed,
       time: timeLabel,
     }
 
-    setMessages((current) => [...current, newMessage])
+    setConversations((current) => ({
+      ...current,
+      [selectedUser.id]: [...(current[selectedUser.id] ?? []), sentMessage],
+    }))
     setDraft('')
     setIsSending(true)
 
     if (!n8nWebhookUrl) {
-      setMessages((current) => [
+      setConversations((current) => ({
         ...current,
-        {
-          id: crypto.randomUUID(),
-          sender: 'other',
-          text: 'Webhook n8n non configuré. Ajoute VITE_N8N_WEBHOOK_URL dans le fichier .env.',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ])
+        [selectedUser.id]: [
+          ...(current[selectedUser.id] ?? []),
+          {
+            id: crypto.randomUUID(),
+            sender: 'other',
+            text: 'Webhook n8n non configuré. Ajoute VITE_N8N_WEBHOOK_URL dans le fichier .env.',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ],
+      }))
       setIsSending(false)
       return
     }
 
     try {
+      const selectedPhone = selectedUser?.phone ?? '33778150001'
+
       const response = await fetch(n8nWebhookUrl, {
         method: 'POST',
         headers: {
@@ -63,8 +90,8 @@ function App() {
         },
         body: JSON.stringify({
           message: trimmed,
-          from: 'demo-react',
-          conversationId: 'demo-chat',
+          from: selectedPhone,
+          conversationId: `${selectedPhone}@s.whatsapp.net`,
         }),
       })
 
@@ -72,15 +99,18 @@ function App() {
 
       if (!response.ok) {
         console.error('Webhook n8n HTTP error', response.status, responseText)
-        setMessages((current) => [
+        setConversations((current) => ({
           ...current,
-          {
-            id: crypto.randomUUID(),
-            sender: 'other',
-            text: `Erreur webhook n8n (${response.status}) : ${responseText}`,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ])
+          [selectedUser.id]: [
+            ...(current[selectedUser.id] ?? []),
+            {
+              id: crypto.randomUUID(),
+              sender: 'other',
+              text: `Erreur webhook n8n (${response.status}) : ${responseText}`,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ],
+        }))
         setIsSending(false)
         return
       }
@@ -96,26 +126,32 @@ function App() {
 
       const botReply = data.reply || data.body || data.message || responseText || 'Aucune réponse reçue de n8n.'
 
-      setMessages((current) => [
+      setConversations((current) => ({
         ...current,
-        {
-          id: crypto.randomUUID(),
-          sender: 'other',
-          text: botReply,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ])
+        [selectedUser.id]: [
+          ...(current[selectedUser.id] ?? []),
+          {
+            id: crypto.randomUUID(),
+            sender: 'other',
+            text: botReply,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ],
+      }))
     } catch (error) {
       console.error('Fetch error', error)
-      setMessages((current) => [
+      setConversations((current) => ({
         ...current,
-        {
-          id: crypto.randomUUID(),
-          sender: 'other',
-          text: `Erreur de connexion au bot n8n. ${error.message || 'Vérifie l’URL, la CORS et la disponibilité du webhook.'}`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ])
+        [selectedUser.id]: [
+          ...(current[selectedUser.id] ?? []),
+          {
+            id: crypto.randomUUID(),
+            sender: 'other',
+            text: `Erreur de connexion au bot n8n. ${error.message || 'Vérifie l’URL, la CORS et la disponibilité du webhook.'}`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ],
+      }))
     } finally {
       setIsSending(false)
     }
@@ -125,13 +161,26 @@ function App() {
     <div className="app-shell">
       <section className="chat-window" aria-label="Conversation WhatsApp">
         <header className="chat-header">
-          <div className="avatar">A</div>
+          <div className="avatar">{selectedUser?.initials ?? 'U'}</div>
           <div className="contact">
-            <h1>Alex</h1>
+            <h1>{selectedUser?.name ?? 'Utilisateur'}</h1>
             <p>En ligne · Dernière activité à {lastSeen}</p>
           </div>
           <div className="status-pill">Privé</div>
         </header>
+
+        <div className="user-selector" aria-label="Sélecteur d'utilisateur">
+          {users.map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              className={user.id === selectedUserId ? 'active' : ''}
+              onClick={() => setSelectedUserId(user.id)}
+            >
+              {user.name}
+            </button>
+          ))}
+        </div>
 
         <div className="chat-body" aria-live="polite">
           {messages.map((message) => (
@@ -169,7 +218,7 @@ function App() {
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Écris un message..."
+            placeholder={`Message pour ${selectedUser?.name ?? 'l’utilisateur'}...`}
             aria-label="Message"
             disabled={isSending}
           />
