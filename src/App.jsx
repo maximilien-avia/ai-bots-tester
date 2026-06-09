@@ -5,10 +5,10 @@ const starterMessages = [
   { id: 2, sender: 'other', text: 'Ça va ? Je suis prêt à discuter.', time: '09:11' },
 ]
 
-const quickReplies = ['Salut !', 'Tu es là ?', 'On continue ?']
+const quickReplies = ['Salut !', 'Je voudrai rejoindre Kretzclub', 'Mon email est : ']
 
 const users = [
-  { id: 'alice', name: 'Alice', initials: 'A', phone: '33675797466' },
+  { id: 'alice', name: 'Alice', initials: 'A', phone: '33624473153' },
   { id: 'bob', name: 'Bob', initials: 'B', phone: '33778150003' },
   { id: 'charlie', name: 'Charlie', initials: 'C', phone: '33655667788' },
 ]
