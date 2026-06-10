@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Workflow Agent IA – KretzClub</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; padding: 40px 24px; }
+  h1 { text-align: center; font-size: 1.4rem; color: #58a6ff; margin-bottom: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .subtitle { text-align: center; color: #8b949e; font-size: 0.85rem; margin-bottom: 40px; }
+
+  .flow { display: flex; gap: 32px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+
+  .lane { flex: 1; min-width: 320px; max-width: 440px; }
+  .lane-title { text-align: center; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 8px 16px; border-radius: 6px; margin-bottom: 20px; }
+  .lane-externe .lane-title { background: #1f2937; color: #f59e0b; border: 1px solid #f59e0b44; }
+  .lane-interne .lane-title { background: #1f2937; color: #34d399; border: 1px solid #34d39944; }
+
+  .node { border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; font-size: 0.82rem; line-height: 1.5; position: relative; }
+  .node-trigger { background: #21262d; border: 1px solid #30363d; text-align: center; color: #8b949e; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+  .node-condition { background: #161b22; border: 1px dashed #58a6ff66; color: #79c0ff; text-align: center; font-size: 0.78rem; }
+  .node-ai { background: #1a1f2e; border: 1px solid #8b5cf6; color: #c4b5fd; }
+  .node-msg { border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; font-size: 0.8rem; line-height: 1.55; position: relative; }
+  .msg-bot { background: #202c33; color: #e9edef; border-radius: 10px 10px 10px 2px; }
+  .msg-ai  { background: #1a2a22; border: 1px solid #34d39933; color: #a7f3d0; border-radius: 10px 10px 10px 2px; }
+
+  .branch { margin-left: 16px; border-left: 2px solid #30363d; padding-left: 16px; margin-bottom: 12px; }
+  .branch-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+  .bl-orange { background: #f59e0b22; color: #f59e0b; }
+  .bl-green  { background: #34d39922; color: #34d399; }
+  .bl-blue   { background: #58a6ff22; color: #58a6ff; }
+  .bl-red    { background: #f8716122; color: #f87171; }
+  .bl-gray   { background: #8b949e22; color: #8b949e; }
+
+  .arrow { text-align: center; color: #30363d; font-size: 1.1rem; margin: 2px 0; }
+  .divider { border: none; border-top: 1px solid #21262d; margin: 16px 0; }
+
+  .tag { font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+  .tag-gemini { background: #1d4ed822; color: #60a5fa; border: 1px solid #60a5fa44; }
+  .tag-static { background: #71717a22; color: #a1a1aa; border: 1px solid #a1a1aa44; }
+
+  .shared { background: #1c2028; border: 1px solid #30363d; border-radius: 10px; padding: 14px 18px; margin-bottom: 32px; font-size: 0.8rem; color: #8b949e; text-align: center; }
+  .shared strong { color: #e6edf3; }
+</style>
+</head>
+<body>
+
+<h1>Workflow Agent IA — KretzClub</h1>
+<p class="subtitle">Flux des messages selon le statut du contact Brevo</p>
+
+<div class="shared">
+  <strong>Message reçu (Webhook)</strong> &rarr; Récupération historique Google Sheets &rarr; <strong>Recherche contact Brevo via numéro WhatsApp</strong>
+</div>
+
+<div class="flow">
+
+  <!-- EXTERNE -->
+  <div class="lane lane-externe">
+    <div class="lane-title">Utilisateur non-membre</div>
+    <div class="node node-condition">Contact introuvable dans Brevo<br><small>ou EST_SUR_WHATSAPP ≠ "oui"</small></div>
+    <div class="arrow">↓</div>
+    <div class="node node-ai">Agent IA externe <span class="tag tag-gemini">Gemini Flash Lite</span><br><small>Analyse l'intention du message</small></div>
+    <div class="arrow">↓</div>
+
+    <div class="branch">
+      <div class="branch-label bl-orange">appel_whatsapp</div>
+      <div class="node-msg msg-ai">Sous-workflow <em>"Accept Whatsapp"</em><br><small>Vérifie le numéro/email et envoie le lien d'accès à la communauté</small></div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-blue">proposer_aide</div>
+      <div class="node-msg msg-bot">Je suis un Bot.<br>Je peux seulement vous aider à<br>1 - Nous contacter<br>2 - Authentifier votre compte WhatsApp<br><br>Je vois que vous avez du mal à vous identifier, voulez-vous que je contacte une personne physique ?</div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-red">contacter_kretzclub</div>
+      <div class="node-msg msg-bot">J'ai fait appel à une personne physique. Vous serez contacté dès que possible.</div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-gray">autre</div>
+      <div class="node-msg msg-bot">Bonjour,<br><br>Je suis le bot du KretzClub.<br>Je peux seulement vous aider à<br>1 - Nous contacter<br>2 - Authentifier votre compte WhatsApp pour accéder à la communauté.<br><br>Souhaitez-vous poursuivre avec l'option 2 ?</div>
+    </div>
+  </div>
+
+  <!-- INTERNE -->
+  <div class="lane lane-interne">
+    <div class="lane-title">Membre KretzClub</div>
+    <div class="node node-condition">Contact trouvé dans Brevo<br><small>EST_SUR_WHATSAPP = "oui"</small></div>
+    <div class="arrow">↓</div>
+    <div class="node node-ai">Agent IA interne <span class="tag tag-gemini">Gemini Flash Lite</span><br><small>Analyse l'intention du message</small></div>
+    <div class="arrow">↓</div>
+
+    <div class="branch">
+      <div class="branch-label bl-green">groupes</div>
+      <div class="node-msg msg-ai">Sous-workflow <em>"Questions groupes"</em><br>+ génération IA <span class="tag tag-gemini">Gemini</span><br><small>Liens et descriptions des groupes auxquels le membre a accès</small></div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-blue">csm</div>
+      <div class="node-msg msg-ai">Sous-workflow <em>"Information CSM"</em><br>+ génération IA <span class="tag tag-gemini">Gemini</span><br><small>Nom et email du CSM du contact (ex: sixtine.herard@kretzclub.com)</small></div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-green">remerciement</div>
+      <div class="node-msg msg-bot">Avec plaisir !<br>Si vous avez d'autres questions ou besoin d'aide sur un sujet, n'hésitez pas à demander. Bonne journée !</div>
+    </div>
+
+    <div class="branch">
+      <div class="branch-label bl-gray">autre</div>
+      <div class="node-msg msg-bot">Je suis un Bot.<br>Je peux seulement vous aider à<br>1 - Contacter votre CSM<br>2 - Vous partager les liens d'accès et descriptions des groupes.<br><br>Souhaitez-vous procéder avec l'option 2 ?</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
