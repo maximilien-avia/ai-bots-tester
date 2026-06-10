@@ -13,6 +13,15 @@ const users = [
   { id: 'charlie', name: 'Charlie', initials: 'C', phone: '33655667788' },
 ]
 
+const formatPhone = (phone) => {
+  const d = phone.replace(/\D/g, '')
+  if (d.startsWith('33') && d.length === 11) {
+    const l = d.slice(2)
+    return `+33 ${l[0]} ${l.slice(1,3)} ${l.slice(3,5)} ${l.slice(5,7)} ${l.slice(7,9)}`
+  }
+  return `+${d}`
+}
+
 function App() {
   const [conversations, setConversations] = useState(() => {
     const initial = {}
@@ -29,6 +38,7 @@ function App() {
   const [selectedUserId, setSelectedUserId] = useState(users[0].id)
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   const lastSeen = useMemo(() => {
     const now = new Date()
@@ -38,6 +48,7 @@ function App() {
   const selectedUser = users.find((user) => user.id === selectedUserId)
   const messages = conversations[selectedUserId] ?? []
   const n8nWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
+  const n8nResetUrl = import.meta.env.VITE_N8N_RESET_URL
 
   useEffect(() => {
     document.title = 'Chat privé'
@@ -157,6 +168,48 @@ function App() {
     }
   }
 
+  const resetConversation = async () => {
+    if (isResetting || !selectedUser) return
+    setIsResetting(true)
+
+    const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    try {
+      const response = await fetch(n8nResetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: selectedUser.phone }),
+      })
+
+      const responseText = await response.text()
+      let data = {}
+      try { data = JSON.parse(responseText) } catch { /* réponse non-JSON */ }
+
+      const systemText = response.ok
+        ? `Historique réinitialisé — ${data.rows_anonymized ?? 0} message(s) anonymisé(s) sous l'ID #${data.anonymous_id ?? '?'}.`
+        : `Erreur lors de la réinitialisation (${response.status}) : ${responseText.slice(0, 120)}`
+
+      setConversations((current) => ({
+        ...current,
+        [selectedUser.id]: [
+          ...starterMessages.map((m, i) => ({ ...m, id: `${selectedUser.id}-reset-${i}` })),
+          { id: crypto.randomUUID(), sender: 'system', text: systemText, time: timeLabel },
+        ],
+      }))
+    } catch (error) {
+      const timeErr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      setConversations((current) => ({
+        ...current,
+        [selectedUser.id]: [
+          ...(current[selectedUser.id] ?? []),
+          { id: crypto.randomUUID(), sender: 'system', text: `Erreur de connexion : ${error.message}`, time: timeErr },
+        ],
+      }))
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
   return (
     <div className="app-shell">
       <section className="chat-window" aria-label="Conversation WhatsApp">
@@ -164,9 +217,18 @@ function App() {
           <div className="avatar">{selectedUser?.initials ?? 'U'}</div>
           <div className="contact">
             <h1>{selectedUser?.name ?? 'Utilisateur'}</h1>
-            <p>En ligne · Dernière activité à {lastSeen}</p>
+            <p>{formatPhone(selectedUser?.phone ?? '')} · En ligne à {lastSeen}</p>
           </div>
           <div className="status-pill">Privé</div>
+          <button
+            type="button"
+            className="reset-btn"
+            onClick={resetConversation}
+            disabled={isResetting || isSending}
+            title="Anonymiser l'historique et désactiver WhatsApp dans Brevo"
+          >
+            {isResetting ? '...' : 'Réinitialiser'}
+          </button>
         </header>
 
         <div className="user-selector" aria-label="Sélecteur d'utilisateur">
@@ -177,7 +239,7 @@ function App() {
               className={user.id === selectedUserId ? 'active' : ''}
               onClick={() => setSelectedUserId(user.id)}
             >
-              {user.name}
+              {user.name} <span className="user-phone">{formatPhone(user.phone)}</span>
             </button>
           ))}
         </div>
@@ -186,7 +248,7 @@ function App() {
           {messages.map((message) => (
             <article
               key={message.id}
-              className={`message ${message.sender === 'me' ? 'outgoing' : 'incoming'}`}
+              className={`message ${message.sender === 'me' ? 'outgoing' : message.sender === 'system' ? 'system' : 'incoming'}`}
             >
               <p>{message.text}</p>
               <span>{message.time}</span>
